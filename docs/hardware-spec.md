@@ -50,14 +50,19 @@
 | 电池 | 3S 18650 1500–2200 mAh，带 BMS | 12V 电机；舵机用 BEC 降到 5V |
 | 充电 | USB-C 3S 充电器，或取出充电 | 球上开检修盖 |
 
-固件草稿：`firmware/bb8_bridge.ino`
+固件：`firmware/bb8_bridge.ino`（ESP32 Arduino core 3.x + `ESP32Servo` 库）。含掉线保护：500ms 收不到指令自动停轮。
 
-| 信号 | ESP32 引脚 |
-| --- | --- |
-| drive PWM | GPIO 25 |
-| turn PWM | GPIO 26 |
-| lookYaw | GPIO 18 |
-| lookPitch | GPIO 19 |
+| 用途 | 信号 | ESP32 引脚 |
+| --- | --- | --- |
+| TB6612 使能 | STBY | GPIO 32 |
+| 左驱动轮 | PWMA / AIN1 / AIN2 | GPIO 25 / 27 / 14 |
+| 右驱动轮 | PWMB / BIN1 / BIN2 | GPIO 26 / 33 / 13 |
+| 底盘偏航 | turn（360° 舵机信号） | GPIO 4 |
+| 头偏航 | lookYaw（MG90S） | GPIO 18 |
+| 头俯仰 | lookPitch（MG90S） | GPIO 19 |
+| 表情反馈 | 板载 LED（暂代蜂鸣器） | GPIO 2 |
+
+两个驱动轮由 `drive` 同向驱动；某个轮子转反了就把它两根电机线对调。`turn` 默认走 360° 连续舵机（信号线一根即可），也可换成第三只减速电机（需另配驱动通道）。舵机电源用 BEC 降到 5V，务必和 ESP32、电机**共地**。
 
 协议一行 JSON，20Hz：
 
