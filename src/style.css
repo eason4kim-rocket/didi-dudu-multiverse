@@ -77,6 +77,42 @@ canvas {
   opacity: 0.88;
 }
 
+#race {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  text-align: center;
+  pointer-events: none;
+  color: #f4efe6;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+#race-timer {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+#race-sub {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+#race-prompt {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(27, 20, 12, 0.42);
+  font-size: 13px;
+  opacity: 0.92;
+}
+
 kbd {
   display: inline-block;
   min-width: 1.4em;

@@ -10,6 +10,7 @@ import { Bb8Body } from "./sim/bb8-body";
 import { Bb8Head } from "./sim/bb8-head";
 import { Buddy } from "./sim/buddy";
 import { createPhysicsWorld } from "./sim/world";
+import { Race } from "./game/race";
 import { UNIVERSES, runtimeGrip } from "./universes";
 
 const FIXED_DT = 1 / 60;
@@ -31,6 +32,15 @@ scene.add(body.mesh);
 scene.add(body.idu.mesh);
 scene.add(head.mesh);
 scene.add(buddy.mesh);
+
+const race = new Race({
+  timer: document.querySelector<HTMLElement>("#race-timer"),
+  progress: document.querySelector<HTMLElement>("#race-progress"),
+  best: document.querySelector<HTMLElement>("#race-best"),
+  prompt: document.querySelector<HTMLElement>("#race-prompt"),
+});
+scene.add(race.mesh);
+race.setUniverse(UNIVERSES[0].id);
 
 const statusEl = document.querySelector("#hw-status");
 const serialBtn = document.querySelector("#btn-serial");
@@ -60,6 +70,8 @@ function setUniverse(index: number): void {
   world.gravity.set(0, u.gravity, 0);
   ballContact.friction = u.ballFriction;
   runtimeGrip.scale = u.gripScale;
+  // Each world keeps its own best lap: switching re-arms the run.
+  race.setUniverse(u.id);
   if (universeBtn instanceof HTMLButtonElement) {
     universeBtn.textContent = `宇宙：${u.name}`;
   }
@@ -72,6 +84,9 @@ universeBtn?.addEventListener("click", () => {
 window.addEventListener("keydown", (event) => {
   if (event.code === "KeyU" && !event.repeat) {
     setUniverse(universeIndex + 1);
+  }
+  if (event.code === "KeyR" && !event.repeat) {
+    race.reset();
   }
 });
 
@@ -195,6 +210,18 @@ function frame(now: number): void {
   }
 
   sim.syncVisuals(bb8State, dt);
+
+  // Time-trial: the race always tracks 迪迪, so gates only tick when BB-8
+  // actually rolls through them. Reward gates and the finish with a chirp.
+  const raceEvent = race.update(body.physics.position, now);
+  if (raceEvent === "start" || raceEvent === "gate") {
+    audio.play("chirp", 0.05);
+  } else if (raceEvent === "finish" || raceEvent === "record") {
+    audio.play("excited", raceEvent === "record" ? 0.09 : 0.06);
+    body.react("excited");
+    head.triggerEmote("excited");
+  }
+
   scene.followBody(drivingBb8 ? body : buddy, dt);
   scene.render();
   requestAnimationFrame(frame);
@@ -209,6 +236,7 @@ Object.assign(window as unknown as Record<string, unknown>, {
     buddy,
     controller,
     world,
+    race,
     getActiveBot: () => activeBot,
     setUniverse,
   },
