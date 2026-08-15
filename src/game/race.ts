@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { t } from "../i18n";
 
 /**
  * Multiverse time-trial. One fixed course of glowing gates loops around the
@@ -235,17 +236,18 @@ export class Race {
       progress.textContent = `${Math.min(this.nextIndex, this.gates.length)} / ${this.gates.length}`;
     }
     if (best) {
-      best.textContent = this.best === null ? "最佳 —" : `最佳 ${formatTime(this.best)}`;
+      best.textContent =
+        this.best === null ? t("race.bestNone") : t("race.best", { t: formatTime(this.best) });
     }
     if (prompt) {
       if (this.state === "idle") {
-        prompt.textContent = "驾驶迪迪穿过发光的门开始计时";
+        prompt.textContent = t("race.idle");
       } else if (this.state === "running") {
-        prompt.textContent = `冲向下一个门（还剩 ${this.gates.length - this.nextIndex}）`;
+        prompt.textContent = t("race.running", { n: this.gates.length - this.nextIndex });
       } else {
         prompt.textContent = this.lastWasRecord
-          ? `完成！${formatTime(this.elapsed)} — 新纪录！按 R 再来`
-          : `完成！${formatTime(this.elapsed)} — 按 R 再来`;
+          ? t("race.recordFinish", { t: formatTime(this.elapsed) })
+          : t("race.finish", { t: formatTime(this.elapsed) });
       }
     }
   }

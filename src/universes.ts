@@ -11,6 +11,8 @@ export type SkyKind = "dusk" | "galaxy" | "snow";
 export interface Universe {
   id: string;
   name: string;
+  /** English label for the universe button when language = en. */
+  nameEn: string;
   sky: SkyKind;
   background: number;
   fog: number;
@@ -42,6 +44,7 @@ export const UNIVERSES: Universe[] = [
   {
     id: "dusk",
     name: "黄沙黄昏",
+    nameEn: "Dusk Dunes",
     sky: "dusk",
     background: 0xe9c290,
     fog: 0xe9c290,
@@ -62,6 +65,7 @@ export const UNIVERSES: Universe[] = [
   {
     id: "mars",
     name: "火星银河夜",
+    nameEn: "Mars Galaxy Night",
     sky: "galaxy",
     background: 0x05030a,
     fog: 0x6d3a1c,
@@ -83,6 +87,7 @@ export const UNIVERSES: Universe[] = [
   {
     id: "snow",
     name: "低重力冰雪",
+    nameEn: "Icy Low-G",
     sky: "snow",
     background: 0xdcecf7,
     fog: 0xdcecf7,

@@ -12,6 +12,7 @@ import { Buddy } from "./sim/buddy";
 import { createPhysicsWorld } from "./sim/world";
 import { Race } from "./game/race";
 import { UNIVERSES, runtimeGrip } from "./universes";
+import { getLang, onLangChange, t, toggleLang } from "./i18n";
 
 const FIXED_DT = 1 / 60;
 
@@ -55,13 +56,18 @@ let activeBot: "bb8" | "dudu" = "bb8";
 function setActiveBot(bot: "bb8" | "dudu"): void {
   activeBot = bot;
   if (switchBtn instanceof HTMLButtonElement) {
-    switchBtn.textContent = bot === "bb8" ? "操控独独" : "操控迪迪";
+    switchBtn.textContent = t(bot === "bb8" ? "btn.driveDudu" : "btn.driveDidi");
   }
 }
 
 // --- Multiverse: each universe swaps scenery AND physics. ---
 const universeBtn = document.querySelector("#btn-universe");
 let universeIndex = 0;
+
+function universeLabel(): string {
+  const u = UNIVERSES[universeIndex];
+  return t("universe.prefix") + (getLang() === "en" ? u.nameEn : u.name);
+}
 
 function setUniverse(index: number): void {
   universeIndex = ((index % UNIVERSES.length) + UNIVERSES.length) % UNIVERSES.length;
@@ -73,7 +79,7 @@ function setUniverse(index: number): void {
   // Each world keeps its own best lap: switching re-arms the run.
   race.setUniverse(u.id);
   if (universeBtn instanceof HTMLButtonElement) {
-    universeBtn.textContent = `宇宙：${u.name}`;
+    universeBtn.textContent = universeLabel();
   }
 }
 
@@ -112,7 +118,7 @@ hardware.onStatus = (status) => {
 serialBtn?.addEventListener("click", () => {
   hardware.connectSerial().catch((error: Error) => {
     if (error.name !== "NotFoundError" && error.name !== "AbortError") {
-      hardware.onStatus?.(`串口失败：${error.message}`, null);
+      hardware.onStatus?.(t("hw.serialFail", { msg: error.message }), null);
     }
   });
 });
@@ -120,7 +126,7 @@ serialBtn?.addEventListener("click", () => {
 bleBtn?.addEventListener("click", () => {
   hardware.connectBluetooth().catch((error: Error) => {
     if (error.name !== "NotFoundError" && error.name !== "AbortError") {
-      hardware.onStatus?.(`蓝牙失败：${error.message}`, null);
+      hardware.onStatus?.(t("hw.bleFail", { msg: error.message }), null);
     }
   });
 });
@@ -130,7 +136,7 @@ function setCutaway(on: boolean): void {
   body.setCutaway(on);
   buddy.setCutaway(on);
   if (cutawayBtn instanceof HTMLButtonElement) {
-    cutawayBtn.textContent = on ? "外壳" : "看内部结构";
+    cutawayBtn.textContent = t(on ? "btn.cutawayOff" : "btn.cutawayOn");
   }
 }
 
@@ -144,6 +150,41 @@ window.addEventListener("keydown", (event) => {
   }
   setCutaway(!cutaway);
 });
+
+// --- Language toggle: 中文 / English (button, or the L key). ---
+const langBtn = document.querySelector("#btn-lang");
+
+function applyLang(): void {
+  document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
+    const key = el.dataset.i18n;
+    if (key) {
+      el.textContent = t(key);
+    }
+  });
+  if (switchBtn instanceof HTMLButtonElement) {
+    switchBtn.textContent = t(activeBot === "bb8" ? "btn.driveDudu" : "btn.driveDidi");
+  }
+  if (cutawayBtn instanceof HTMLButtonElement) {
+    cutawayBtn.textContent = t(cutaway ? "btn.cutawayOff" : "btn.cutawayOn");
+  }
+  if (universeBtn instanceof HTMLButtonElement) {
+    universeBtn.textContent = universeLabel();
+  }
+  if (langBtn instanceof HTMLButtonElement) {
+    langBtn.textContent = getLang() === "zh" ? "EN" : "中文";
+  }
+}
+
+langBtn?.addEventListener("click", () => {
+  toggleLang();
+});
+window.addEventListener("keydown", (event) => {
+  if (event.code === "KeyL" && !event.repeat) {
+    toggleLang();
+  }
+});
+onLangChange(applyLang);
+applyLang();
 
 const unlockAudio = (): void => {
   audio.unlock();

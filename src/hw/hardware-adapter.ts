@@ -1,4 +1,5 @@
 import type { Actuator, ControlState } from "../control/commands";
+import { t } from "../i18n";
 import { HARDWARE_HZ, NUS_RX, NUS_SERVICE, encodeFrame } from "./protocol";
 
 export type HardwareTransport = "serial" | "ble" | null;
@@ -14,7 +15,7 @@ export class HardwareAdapter implements Actuator {
   private readonly encoder = new TextEncoder();
 
   transport: HardwareTransport = null;
-  status = "未连接（仅仿真）";
+  status = t("hw.idle");
   onStatus?: (status: string, transport: HardwareTransport) => void;
 
   get connected(): boolean {
@@ -23,7 +24,7 @@ export class HardwareAdapter implements Actuator {
 
   async connectSerial(): Promise<void> {
     if (!navigator.serial) {
-      this.setStatus("当前浏览器不支持 Web Serial，请用 Chrome / Edge", null);
+      this.setStatus(t("hw.noSerial"), null);
       return;
     }
     const port = await navigator.serial.requestPort();
@@ -32,7 +33,7 @@ export class HardwareAdapter implements Actuator {
     this.port = port;
     this.writer = port.writable?.getWriter() ?? null;
     this.transport = "serial";
-    this.setStatus("串口已连接 115200", "serial");
+    this.setStatus(t("hw.serialConnected"), "serial");
     port.addEventListener("disconnect", () => {
       void this.disconnect();
     });
@@ -41,13 +42,13 @@ export class HardwareAdapter implements Actuator {
 
   async connectBluetooth(): Promise<void> {
     if (!navigator.bluetooth) {
-      this.setStatus("当前浏览器不支持 Web Bluetooth，请用 Chrome", null);
+      this.setStatus(t("hw.noBle"), null);
       return;
     }
     const device = await requestBleDevice();
     const server = await device.gatt?.connect();
     if (!server) {
-      this.setStatus("蓝牙 GATT 连接失败", null);
+      this.setStatus(t("hw.bleGattFail"), null);
       return;
     }
     const service = await server.getPrimaryService(NUS_SERVICE);
@@ -56,7 +57,7 @@ export class HardwareAdapter implements Actuator {
     this.bleDevice = device;
     this.bleChar = characteristic;
     this.transport = "ble";
-    this.setStatus(`蓝牙已连接 ${device.name ?? "BB-8"}`, "ble");
+    this.setStatus(t("hw.bleConnected", { name: device.name ?? "BB-8" }), "ble");
     device.addEventListener("gattserverdisconnected", () => {
       void this.disconnect();
     });
@@ -84,7 +85,7 @@ export class HardwareAdapter implements Actuator {
     this.bleDevice = null;
     this.bleChar = null;
     if (this.transport !== null) {
-      this.setStatus("未连接（仅仿真）", null);
+      this.setStatus(t("hw.idle"), null);
     }
     this.transport = null;
     this.lastPayload = "";
@@ -120,7 +121,7 @@ export class HardwareAdapter implements Actuator {
         await this.bleChar.writeValueWithoutResponse(bytes);
       }
     } catch {
-      this.setStatus("发送失败，已断开", null);
+      this.setStatus(t("hw.sendFail"), null);
       await this.disconnect();
     } finally {
       this.writing = false;
