@@ -13,6 +13,7 @@ import { Buddy } from "./sim/buddy";
 import { createPhysicsWorld } from "./sim/world";
 import { Race } from "./game/race";
 import { Portal } from "./game/portal";
+import { Beacon } from "./game/beacon";
 import { EchoResponder } from "./game/echo";
 import { WorldVitality } from "./game/vitality";
 import { Parts } from "./game/parts";
@@ -54,6 +55,12 @@ race.setUniverse(UNIVERSES[0].id);
 // straight ahead of 迪迪's spawn, clear of the dunes and rocks.
 const portal = new Portal(0, -6);
 scene.add(portal.mesh);
+
+// 信标碎片: the cold-open McGuffin — off to one side of spawn, its hint beam
+// leading the eye across to the 门. Only in the opening world.
+const beacon = new Beacon(-5, -3, 0, -6);
+beacon.setUniverse(UNIVERSES[0].id);
+scene.add(beacon.mesh);
 
 const flashEl = document.querySelector<HTMLElement>("#portal-flash");
 const cardEl = document.querySelector<HTMLElement>("#world-card");
@@ -168,6 +175,7 @@ function setUniverse(index: number): void {
   // Each world remembers its own vitality; parts respawn fresh per visit.
   vitality.setUniverse(u.id);
   parts.setUniverse(u.id);
+  beacon.setUniverse(u.id); // the shard only lives in the opening world
   vitalityApplied = vitality.value;
   scene.setVitality(vitalityApplied);
   if (universeBtn instanceof HTMLButtonElement) {
@@ -337,6 +345,7 @@ function frame(now: number): void {
         head.triggerEmote(emote);
         body.react(emote);
         echo.heard(emote); // 独独 answers a beat later
+        beacon.provoke(now, body.physics.position); // ...and so does the shard, broken
       } else {
         audio.play(emote, 0.06, 1, "dudu");
         buddy.triggerEmote(emote);
@@ -413,6 +422,11 @@ function frame(now: number): void {
     head.triggerEmote("excited");
   }
 
+  // 信标碎片: the shard pulses and calls out in 迪迪's broken voice.
+  if (beacon.update(now)) {
+    audio.playBroken("chirp", 0.05);
+  }
+
   // 平行宇宙之门: 迪迪 rolling through it hops to the next world.
   if (portal.update(body.physics.position, now) === "enter") {
     audio.play("excited", 0.07);
@@ -452,6 +466,7 @@ Object.assign(window as unknown as Record<string, unknown>, {
     world,
     race,
     portal,
+    beacon,
     echo,
     vitality,
     parts,

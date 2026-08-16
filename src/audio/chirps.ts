@@ -186,6 +186,7 @@ export class Chirps {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private muffle: BiquadFilterNode | null = null;
+  private brokenBus: WaveShaperNode | null = null;
   private rollGain: GainNode | null = null;
   private rollFilter: BiquadFilterNode | null = null;
   private lastPlay = 0;
@@ -220,6 +221,62 @@ export class Chirps {
       syllable.f1 *= pitchScale;
       t = this.syllable(ctx, this.master, syllable, t, peak);
     }
+  }
+
+  /**
+   * 信标碎片: 迪迪's own chirp, but broken — detuned, missing notes, and pushed
+   * through a distortion so it sounds like its voice arriving wrong across the
+   * screen. A splinter of "the real" trying to answer.
+   */
+  playBroken(kind: EmoteKind = "chirp", gain = 0.05): void {
+    const ctx = this.ensureContext();
+    if (!ctx || !this.master) {
+      return;
+    }
+    if (ctx.state === "suspended") {
+      void ctx.resume();
+    }
+    const bus = this.ensureBrokenBus(ctx);
+    const peak = gain * 2.4;
+    let t = ctx.currentTime + 0.01;
+    for (const syllable of PHRASES.bb8[kind]()) {
+      if (Math.random() < 0.4) {
+        t += syllable.dur + (syllable.gap ?? 0); // a dropped note — 缺几个音
+        continue;
+      }
+      const detune = 0.82 + Math.random() * 0.1; // 又不太对
+      syllable.f0 *= detune;
+      syllable.f1 *= detune;
+      t = this.syllable(ctx, bus, syllable, t, peak);
+      if (Math.random() < 0.3) {
+        t += 0.05 + Math.random() * 0.09; // glitchy stutter gaps
+      }
+    }
+  }
+
+  private ensureBrokenBus(ctx: AudioContext): WaveShaperNode {
+    if (this.brokenBus) {
+      return this.brokenBus;
+    }
+    const shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i += 1) {
+      const x = (i / 255) * 2 - 1;
+      curve[i] = ((3 + 18) * x * 0.35) / (Math.PI + 18 * Math.abs(x)); // soft clip
+    }
+    shaper.curve = curve;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 1500;
+    const g = ctx.createGain();
+    g.gain.value = 0.8;
+    shaper.connect(lp);
+    lp.connect(g);
+    if (this.master) {
+      g.connect(this.master);
+    }
+    this.brokenBus = shaper;
+    return shaper;
   }
 
   /** Low rolling rumble while the ball moves; call every frame with speed. */
