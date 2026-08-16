@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { DOMES, ROCKS } from "../sim/terrain";
+import { HF_N, HF_SIZE, heightAtWorld } from "../sim/heightfield";
 import { UNIVERSES, type Universe } from "../universes";
 
 /** Anything with a physics position the camera can track. */
@@ -197,10 +198,22 @@ export class GameScene {
   }
 
   private addGround(u: Universe): void {
-    // A bump map gives the ground real relief under the light — the single
-    // biggest jump from "flat decal" to "surface you could stub a toe on".
+    // Displace a grid by the SAME height function the physics Heightfield uses,
+    // so the terrain you see is exactly what 迪迪 rolls over. The bump map then
+    // adds micro-relief on top of the macro landforms.
+    const geo = new THREE.PlaneGeometry(HF_SIZE, HF_SIZE, HF_N, HF_N);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i += 1) {
+      // Pre-rotation vertex (vx, vy) maps to world (vx, h, -vy) once the mesh
+      // is laid flat, so sample height at world (vx, -vy).
+      const h = heightAtWorld(pos.getX(i), -pos.getY(i), u.id);
+      pos.setZ(i, h);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(48, 96),
+      geo,
       new THREE.MeshStandardMaterial({
         map: makeSandTexture(u.sandBase, u.sandFleck),
         bumpMap: makeGroundBump(u.cratered),

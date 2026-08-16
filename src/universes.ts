@@ -130,9 +130,9 @@ export const UNIVERSES: Universe[] = [
     sky: "moon",
     background: 0x04050a,
     fog: 0x04050a,
-    // Airless: no atmospheric haze — a hard, sharp horizon.
-    fogNear: 70,
-    fogFar: 260,
+    // Airless: play zone stays crisp; the far ground just sinks into the black.
+    fogNear: 38,
+    fogFar: 66,
     // Airless lighting: strong sun, almost no fill, near-black shadows.
     hemi: [0x2b3040, 0x2a2a2e, 0.22],
     sun: [0xfff6ea, 1.75],

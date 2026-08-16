@@ -15,13 +15,14 @@ import { Portal } from "./game/portal";
 import { EchoResponder } from "./game/echo";
 import { WorldVitality } from "./game/vitality";
 import { Parts } from "./game/parts";
+import { heightAtWorld } from "./sim/heightfield";
 import { UNIVERSES, runtimeGrip } from "./universes";
 import { getLang, onLangChange, t, toggleLang } from "./i18n";
 
 const FIXED_DT = 1 / 60;
 
 const scene = new GameScene(document.body);
-const { world, ballMaterial, wheelMaterial, ballContact } = createPhysicsWorld();
+const { world, ballMaterial, wheelMaterial, ballContact, setTerrain } = createPhysicsWorld();
 const body = new Bb8Body(ballMaterial);
 const head = new Bb8Head();
 const buddy = new Buddy(wheelMaterial);
@@ -99,6 +100,7 @@ function setUniverse(index: number): void {
   universeIndex = ((index % UNIVERSES.length) + UNIVERSES.length) % UNIVERSES.length;
   const u = UNIVERSES[universeIndex];
   scene.applyUniverse(u);
+  setTerrain(u.id); // swap the Heightfield collider to match the new terrain
   world.gravity.set(0, u.gravity, 0);
   ballContact.friction = u.ballFriction;
   runtimeGrip.scale = u.gripScale;
@@ -368,6 +370,7 @@ Object.assign(window as unknown as Record<string, unknown>, {
     vitality,
     parts,
     getActiveBot: () => activeBot,
+    heightAt: (x: number, z: number) => heightAtWorld(x, z, UNIVERSES[universeIndex].id),
     setUniverse,
     enterWorld,
   },

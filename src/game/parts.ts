@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { heightAtWorld } from "../sim/heightfield";
 
 /**
  * 真身零件 — the body-parts 迪迪 pulls out of the worlds to become real. Roll
@@ -50,7 +51,7 @@ export class Parts {
     this.collected = 0;
     const spots = SPOTS[id] ?? [];
     for (const [x, z] of spots) {
-      const baseY = 0.62;
+      const baseY = 0.62 + heightAtWorld(x, z, id); // float above the terrain, not flat ground
       const group = makePart();
       group.position.set(x, baseY, z);
       this.mesh.add(group);

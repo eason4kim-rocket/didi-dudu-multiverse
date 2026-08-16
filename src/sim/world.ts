@@ -1,5 +1,6 @@
 import * as CANNON from "cannon-es";
 import { DOMES, ROCKS } from "./terrain";
+import { HF_ELEM, HF_SIZE, makeHeightfieldData } from "./heightfield";
 
 export function createPhysicsWorld(): {
   world: CANNON.World;
@@ -7,6 +8,8 @@ export function createPhysicsWorld(): {
   ballMaterial: CANNON.Material;
   wheelMaterial: CANNON.Material;
   ballContact: CANNON.ContactMaterial;
+  /** Swap the terrain collider when the universe changes. */
+  setTerrain: (universeId: string) => void;
 } {
   const world = new CANNON.World({
     gravity: new CANNON.Vec3(0, -9.82, 0),
@@ -38,15 +41,33 @@ export function createPhysicsWorld(): {
     }),
   );
 
-  const ground = new CANNON.Body({
-    mass: 0,
-    material: groundMaterial,
-    shape: new CANNON.Plane(),
-    collisionFilterGroup: 1,
-    collisionFilterMask: 1,
-  });
-  ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-  world.addBody(ground);
+  // Terrain: a Heightfield collider carrying this world's real relief. It's
+  // swapped when the universe changes, and rebuilt from the SAME height
+  // function the render mesh displaces to — so you collide with what you see.
+  let terrain: CANNON.Body | null = null;
+  function setTerrain(universeId: string): void {
+    if (terrain) {
+      world.removeBody(terrain);
+    }
+    const shape = new CANNON.Heightfield(makeHeightfieldData(universeId), {
+      elementSize: HF_ELEM,
+      minValue: -1,
+      maxValue: 1,
+    });
+    const body = new CANNON.Body({
+      mass: 0,
+      material: groundMaterial,
+      collisionFilterGroup: 1,
+      collisionFilterMask: 1,
+    });
+    body.addShape(shape);
+    // Lay the grid flat in world XZ (heights along +Y), centred on the origin.
+    body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    body.position.set(-HF_SIZE / 2, 0, HF_SIZE / 2);
+    world.addBody(body);
+    terrain = body;
+  }
+  setTerrain("dusk");
 
   // Dunes: buried spheres — the visible dome caps are solid, so the robots
   // climb them with real contact physics instead of clipping through.
@@ -75,5 +96,5 @@ export function createPhysicsWorld(): {
     world.addBody(body);
   }
 
-  return { world, groundMaterial, ballMaterial, wheelMaterial, ballContact };
+  return { world, groundMaterial, ballMaterial, wheelMaterial, ballContact, setTerrain };
 }
