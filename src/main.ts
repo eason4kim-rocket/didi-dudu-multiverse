@@ -12,6 +12,7 @@ import { Buddy } from "./sim/buddy";
 import { createPhysicsWorld } from "./sim/world";
 import { Race } from "./game/race";
 import { Portal } from "./game/portal";
+import { EchoResponder } from "./game/echo";
 import { UNIVERSES, runtimeGrip } from "./universes";
 import { getLang, onLangChange, t, toggleLang } from "./i18n";
 
@@ -54,6 +55,9 @@ const cardEl = document.querySelector<HTMLElement>("#world-card");
 const cardNameEl = document.querySelector<HTMLElement>("#world-card-name");
 let cardHideTimer = 0;
 let worldSwapTimer = 0;
+
+// 回声应答: 迪迪 calls, 独独 answers a beat later — the emotional spine.
+const echo = new EchoResponder(buddy, audio);
 
 const statusEl = document.querySelector("#hw-status");
 const serialBtn = document.querySelector("#btn-serial");
@@ -254,6 +258,7 @@ function frame(now: number): void {
       audio.play(emote);
       head.triggerEmote(emote);
       body.react(emote);
+      echo.heard(emote); // 独独 answers a beat later
     } else {
       audio.play(emote, 0.06, 1, "dudu");
       buddy.triggerEmote(emote);
@@ -261,6 +266,7 @@ function frame(now: number): void {
   } else if (drivingBb8) {
     voice.update(audio, controller.state, body.horizontalSpeed());
   }
+  echo.update(now);
 
   // Idle acting: when left alone for a while, BB-8 glances around.
   const s = controller.state;
@@ -327,6 +333,7 @@ Object.assign(window as unknown as Record<string, unknown>, {
     world,
     race,
     portal,
+    echo,
     getActiveBot: () => activeBot,
     setUniverse,
     enterWorld,
