@@ -10,6 +10,10 @@ export const SHELL_MASS = 1.7;
 export const IDU_MASS = 6.8;
 export const PENDULUM_LENGTH = 0.3;
 
+/** 真实质量: assembled 真身零件 add heft — 变真=变重. Capped so it stays drivable. */
+export const LOAD_MAX = 6;
+export const LOAD_MASS_GAIN = 0.22; // shell mass ×(1 + 0.22·parts); 6 parts ≈ 2.3×
+
 export const DRIVE_FORCE = 34;
 export const WHEEL_TORQUE = 5.6;
 export const TURN_RATE = 2.6;

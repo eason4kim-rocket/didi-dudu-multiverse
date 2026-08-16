@@ -11,6 +11,8 @@ import {
   DRIVE_LINEAR_DAMP,
   HEAD_LEAN_GAIN,
   HEAD_LEAN_MAX,
+  LOAD_MASS_GAIN,
+  LOAD_MAX,
   SHELL_MASS,
   SPIN_TORQUE,
   TURN_RATE,
@@ -21,6 +23,8 @@ export class Bb8Body {
   readonly physics: CANNON.Body;
   readonly idu: InternalDriveUnit;
   heading = 0;
+  /** Assembled 真身零件 currently weighing 迪迪 down (0..LOAD_MAX). */
+  load = 0;
 
   private celebrateUntil = 0;
   private recoilUntil = 0;
@@ -48,6 +52,16 @@ export class Bb8Body {
     world.addBody(this.physics);
     world.addBody(this.idu.physics);
     world.addConstraint(this.idu.constraint);
+  }
+
+  /**
+   * 真实质量: each assembled part makes 迪迪 heavier, so the same drive spins it
+   * up slower and it carries more momentum — 变真=变重, felt in the hands.
+   */
+  setLoad(parts: number): void {
+    this.load = Math.max(0, Math.min(parts, LOAD_MAX));
+    this.physics.mass = SHELL_MASS * (1 + LOAD_MASS_GAIN * this.load);
+    this.physics.updateMassProperties();
   }
 
   /** Body acting that goes with an emote: happy spin, scared back-off. */

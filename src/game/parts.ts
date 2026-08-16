@@ -41,6 +41,8 @@ export class Parts {
   private parts: Part[] = [];
   /** Parts taken in the current world this visit. */
   collected = 0;
+  /** Parts assembled across the whole journey — only ever grows (drives heft). */
+  totalTaken = 0;
 
   /** Rebuild the collectible set for a world (fresh each visit). */
   setUniverse(id: string): void {
@@ -73,6 +75,7 @@ export class Parts {
         part.taken = true;
         part.group.visible = false;
         this.collected += 1;
+        this.totalTaken += 1;
         event = "collected";
       }
     }

@@ -335,6 +335,7 @@ function frame(now: number): void {
   // 真身零件 + 世界生机: taking a part dims this world; 独独 (following) relights it.
   if (parts.update(body.physics.position, now) === "collected") {
     vitality.drain(0.34);
+    body.setLoad(parts.totalTaken); // 真实质量: 变真=变重, 迪迪 handles heavier now
     audio.play("excited", 0.06);
     body.react("excited");
     head.triggerEmote("excited");
