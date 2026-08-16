@@ -113,6 +113,74 @@ canvas {
   opacity: 0.92;
 }
 
+/* 平行宇宙之门: a burst of light hides the world rebuild as you cross. */
+#portal-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(240, 251, 255, 0.95),
+    rgba(120, 210, 255, 0.7) 34%,
+    rgba(60, 130, 210, 0) 72%
+  );
+}
+
+#portal-flash.go {
+  animation: portal-burst 620ms ease-out;
+}
+
+@keyframes portal-burst {
+  0% {
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* World title card, fades in on arrival then drifts away. */
+#world-card {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, 8px);
+  z-index: 6;
+  pointer-events: none;
+  text-align: center;
+  color: #f4efe6;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transition:
+    opacity 420ms ease,
+    transform 420ms ease;
+}
+
+#world-card.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#world-card-eyebrow {
+  font-size: 13px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: #9fe0ff;
+  opacity: 0.9;
+  margin-bottom: 6px;
+}
+
+#world-card-name {
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
 kbd {
   display: inline-block;
   min-width: 1.4em;

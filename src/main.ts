@@ -11,6 +11,7 @@ import { Bb8Head } from "./sim/bb8-head";
 import { Buddy } from "./sim/buddy";
 import { createPhysicsWorld } from "./sim/world";
 import { Race } from "./game/race";
+import { Portal } from "./game/portal";
 import { UNIVERSES, runtimeGrip } from "./universes";
 import { getLang, onLangChange, t, toggleLang } from "./i18n";
 
@@ -42,6 +43,17 @@ const race = new Race({
 });
 scene.add(race.mesh);
 race.setUniverse(UNIVERSES[0].id);
+
+// 平行宇宙之门: roll 迪迪 into it to cross worlds. Parked on open ground
+// straight ahead of 迪迪's spawn, clear of the dunes and rocks.
+const portal = new Portal(0, -6);
+scene.add(portal.mesh);
+
+const flashEl = document.querySelector<HTMLElement>("#portal-flash");
+const cardEl = document.querySelector<HTMLElement>("#world-card");
+const cardNameEl = document.querySelector<HTMLElement>("#world-card-name");
+let cardHideTimer = 0;
+let worldSwapTimer = 0;
 
 const statusEl = document.querySelector("#hw-status");
 const serialBtn = document.querySelector("#btn-serial");
@@ -83,13 +95,42 @@ function setUniverse(index: number): void {
   }
 }
 
+// Cross into a world with a bit of ceremony: a burst of light (which also
+// hides the scenery rebuild), the physics swap, then the world's name card.
+// The portal, the U key and the button all funnel through here.
+function worldName(): string {
+  const u = UNIVERSES[((universeIndex % UNIVERSES.length) + UNIVERSES.length) % UNIVERSES.length];
+  return getLang() === "en" ? u.nameEn : u.name;
+}
+
+function enterWorld(index: number): void {
+  if (flashEl) {
+    flashEl.classList.remove("go");
+    void flashEl.offsetWidth; // reflow so the animation restarts on repeat hops
+    flashEl.classList.add("go");
+  }
+  portal.disarm();
+  window.clearTimeout(worldSwapTimer);
+  worldSwapTimer = window.setTimeout(() => {
+    setUniverse(index);
+    if (cardNameEl) {
+      cardNameEl.textContent = worldName();
+    }
+    if (cardEl) {
+      cardEl.classList.add("show");
+      window.clearTimeout(cardHideTimer);
+      cardHideTimer = window.setTimeout(() => cardEl.classList.remove("show"), 1700);
+    }
+  }, 190);
+}
+
 universeBtn?.addEventListener("click", () => {
-  setUniverse(universeIndex + 1);
+  enterWorld(universeIndex + 1);
 });
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "KeyU" && !event.repeat) {
-    setUniverse(universeIndex + 1);
+    enterWorld(universeIndex + 1);
   }
   if (event.code === "KeyR" && !event.repeat) {
     race.reset();
@@ -263,6 +304,13 @@ function frame(now: number): void {
     head.triggerEmote("excited");
   }
 
+  // 平行宇宙之门: 迪迪 rolling through it hops to the next world.
+  if (portal.update(body.physics.position, now) === "enter") {
+    audio.play("excited", 0.07);
+    head.triggerEmote("excited");
+    enterWorld(universeIndex + 1);
+  }
+
   scene.followBody(drivingBb8 ? body : buddy, dt);
   scene.render();
   requestAnimationFrame(frame);
@@ -278,7 +326,9 @@ Object.assign(window as unknown as Record<string, unknown>, {
     controller,
     world,
     race,
+    portal,
     getActiveBot: () => activeBot,
     setUniverse,
+    enterWorld,
   },
 });
