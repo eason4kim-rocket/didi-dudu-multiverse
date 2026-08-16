@@ -47,6 +47,8 @@ export class Buddy {
   private readonly pendulum: THREE.Group;
   private headYaw = 0;
   private headPitch = 0;
+  /** When set (迪迪 lost its head), 独独 goes here to fetch it instead of following. */
+  private rescue: THREE.Vector3 | null = null;
 
   constructor(material: CANNON.Material) {
     const parts = createDuduMesh();
@@ -76,11 +78,16 @@ export class Buddy {
     world.addBody(this.physics);
   }
 
-  /** Autonomous duckling mode: tag along behind BB-8. */
+  /** Point 独独 at a spot to rescue (the lost head), or null to follow again. */
+  setRescueTarget(pos: THREE.Vector3 | null): void {
+    this.rescue = pos;
+  }
+
+  /** Autonomous duckling mode: tag along behind BB-8 (or rush to the lost head). */
   update(bb8: Bb8Body, audio: Chirps, dt: number): void {
     const now = performance.now();
     const pos = this.physics.position;
-    const target = bb8.physics.position;
+    const target = this.rescue ?? bb8.physics.position;
     const dx = target.x - pos.x;
     const dz = target.z - pos.z;
     const dist = Math.hypot(dx, dz);
@@ -94,11 +101,13 @@ export class Buddy {
       audio.play("scared", 0.03, 1, "dudu");
     }
 
-    // Tag along, but freeze while flinching (too scared to move).
-    const pushing = !flinching && dist > FOLLOW_DISTANCE + 0.15;
+    // Tag along, but freeze while flinching (too scared to move). On a rescue,
+    // close right up to the head instead of stopping at follow distance.
+    const follow = this.rescue ? 0.4 : FOLLOW_DISTANCE;
+    const pushing = !flinching && dist > follow + 0.15;
     this.physics.linearDamping = pushing ? 0.3 : 0.92;
     if (pushing) {
-      const gap = dist - FOLLOW_DISTANCE;
+      const gap = dist - follow;
       const push = Math.min(gap * 16, MAX_FORCE);
       const speed = Math.hypot(this.physics.velocity.x, this.physics.velocity.z);
       if (speed < MAX_SPEED) {

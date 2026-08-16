@@ -1,4 +1,5 @@
 import "./style.css";
+import * as THREE from "three";
 import { Chirps } from "./audio/chirps";
 import { Personality } from "./audio/personality";
 import { createControlState } from "./control/commands";
@@ -22,7 +23,8 @@ import { getLang, onLangChange, t, toggleLang } from "./i18n";
 const FIXED_DT = 1 / 60;
 
 const scene = new GameScene(document.body);
-const { world, ballMaterial, wheelMaterial, ballContact, setTerrain } = createPhysicsWorld();
+const { world, groundMaterial, ballMaterial, wheelMaterial, ballContact, setTerrain } =
+  createPhysicsWorld();
 const body = new Bb8Body(ballMaterial);
 const head = new Bb8Head();
 const buddy = new Buddy(wheelMaterial);
@@ -69,6 +71,63 @@ const parts = new Parts();
 parts.setUniverse(UNIVERSES[0].id);
 scene.add(parts.mesh);
 let vitalityApplied = 1;
+
+// --- 无头状态: a hard crash knocks 迪迪's head off (easier the heavier it is).
+// The world dims, sound muffles, it can't emote — until 独独 fetches the head. ---
+const headPos = new THREE.Vector3();
+let pendingLoseHead = false;
+let headlessCooldown = 0; // can't lose the head again for a bit after
+let headlessElapsed = 0; // time since it came off (frame-clock), gates recovery
+let wasDetached = false;
+
+function loseHead(): void {
+  if (head.detached) {
+    return;
+  }
+  head.detach(world, groundMaterial, body.physics.velocity);
+  scene.setHeadless(true);
+  audio.setMuffled(true);
+  audio.play("scared", 0.1); // one last cry as it comes off
+  head.headPosition(headPos);
+  buddy.setRescueTarget(headPos);
+  headlessCooldown = performance.now() + 4000;
+}
+
+function recoverHead(): void {
+  if (!head.detached) {
+    return;
+  }
+  head.recover();
+  scene.setHeadless(false);
+  audio.setMuffled(false);
+  buddy.setRescueTarget(null);
+  audio.play("excited", 0.09); // reunited — relief
+  body.react("excited");
+  head.triggerEmote("excited");
+  buddy.triggerEmote("excited");
+}
+
+// Hard-crash detection: cannon's collide events don't fire for the Heightfield
+// ground, so we measure impact ourselves — a hard landing or slam spikes the
+// ball's velocity between frames. Threshold drops with load (变重=更易碎).
+let prevVx = 0;
+let prevVy = 0;
+let prevVz = 0;
+
+function checkCrash(): void {
+  const v = body.physics.velocity;
+  const dv = Math.hypot(v.x - prevVx, v.y - prevVy, v.z - prevVz);
+  prevVx = v.x;
+  prevVy = v.y;
+  prevVz = v.z;
+  if (head.detached || performance.now() < headlessCooldown) {
+    return;
+  }
+  const threshold = 6.5 - Math.min(body.load, 6) * 0.55;
+  if (dv > threshold && Math.random() < 0.7) {
+    pendingLoseHead = true;
+  }
+}
 
 const statusEl = document.querySelector("#hw-status");
 const serialBtn = document.querySelector("#btn-serial");
@@ -269,19 +328,24 @@ function frame(now: number): void {
   const bb8State = drivingBb8 ? controller.state : IDLE_STATE;
   hardware.apply(bb8State, dt);
 
-  const emote = controller.consumeEmote();
-  if (emote) {
-    if (drivingBb8) {
-      audio.play(emote);
-      head.triggerEmote(emote);
-      body.react(emote);
-      echo.heard(emote); // 独独 answers a beat later
-    } else {
-      audio.play(emote, 0.06, 1, "dudu");
-      buddy.triggerEmote(emote);
+  // A headless 迪迪 can't call out or emote — its inputs are just swallowed.
+  if (!head.detached) {
+    const emote = controller.consumeEmote();
+    if (emote) {
+      if (drivingBb8) {
+        audio.play(emote);
+        head.triggerEmote(emote);
+        body.react(emote);
+        echo.heard(emote); // 独独 answers a beat later
+      } else {
+        audio.play(emote, 0.06, 1, "dudu");
+        buddy.triggerEmote(emote);
+      }
+    } else if (drivingBb8) {
+      voice.update(audio, controller.state, body.horizontalSpeed());
     }
-  } else if (drivingBb8) {
-    voice.update(audio, controller.state, body.horizontalSpeed());
+  } else {
+    controller.consumeEmote();
   }
   echo.update(now);
 
@@ -294,7 +358,7 @@ function frame(now: number): void {
   const bb8Busy = (drivingBb8 && inputActive) || body.horizontalSpeed() > 0.35;
   if (bb8Busy) {
     nextGlance = now + 4200 + Math.random() * 2500;
-  } else if (now > nextGlance && !head.busy) {
+  } else if (now > nextGlance && !head.busy && !head.detached) {
     head.glance();
     if (Math.random() < 0.4) {
       audio.play("curious", 0.035);
@@ -315,6 +379,28 @@ function frame(now: number): void {
   }
 
   sim.syncVisuals(bb8State, dt);
+
+  // 无头状态: measure impact, apply a queued knock-off, steer 独独 to the head,
+  // and reunite them the moment 迪迪 or 独独 reaches it.
+  checkCrash();
+  if (pendingLoseHead) {
+    pendingLoseHead = false;
+    loseHead();
+  }
+  if (head.detached) {
+    headlessElapsed = wasDetached ? headlessElapsed + dt : 0; // reset on a fresh knock-off
+    head.headPosition(headPos);
+    buddy.setRescueTarget(headPos);
+    // Give the head a second to actually fly off before it can be reclaimed.
+    if (headlessElapsed > 1.0) {
+      const dBall = Math.hypot(body.physics.position.x - headPos.x, body.physics.position.z - headPos.z);
+      const dBuddy = Math.hypot(buddy.physics.position.x - headPos.x, buddy.physics.position.z - headPos.z);
+      if (dBall < 1.0 || dBuddy < 1.25) {
+        recoverHead();
+      }
+    }
+  }
+  wasDetached = head.detached;
 
   // Time-trial: the race always tracks 迪迪, so gates only tick when BB-8
   // actually rolls through them. Reward gates and the finish with a chirp.
@@ -369,8 +455,14 @@ Object.assign(window as unknown as Record<string, unknown>, {
     echo,
     vitality,
     parts,
+    head,
     getActiveBot: () => activeBot,
     heightAt: (x: number, z: number) => heightAtWorld(x, z, UNIVERSES[universeIndex].id),
+    loseHead,
+    headXZ: () => {
+      const v = head.headPosition(new THREE.Vector3());
+      return { x: v.x, y: v.y, z: v.z };
+    },
     setUniverse,
     enterWorld,
   },

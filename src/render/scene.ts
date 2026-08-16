@@ -97,14 +97,33 @@ export class GameScene {
   }
 
   /**
-   * 世界生机: drain a world's colour as 迪迪 strips it for parts. A CSS filter
-   * on the canvas desaturates the whole frame uniformly (sky, ground, meshes)
-   * with zero cost and no render-path change. v: 0 (grey) .. 1 (full colour).
+   * 世界生机 + 无头状态, composed into one canvas filter (whole frame, no
+   * render-path change): vitality drains colour as 迪迪 strips a world; losing
+   * the head dims, desaturates and blurs the view — the blind-ball feeling.
    */
   setVitality(v: number): void {
-    const sat = 0.12 + 0.88 * v; // never fully mono — a ghost of colour remains
-    const bright = 0.72 + 0.28 * v; // drained worlds also go a touch colder
-    this.renderer.domElement.style.filter = `saturate(${sat.toFixed(3)}) brightness(${bright.toFixed(3)})`;
+    this.vitality = v;
+    this.applyFilter();
+  }
+
+  setHeadless(on: boolean): void {
+    this.headless = on;
+    this.applyFilter();
+  }
+
+  private vitality = 1;
+  private headless = false;
+
+  private applyFilter(): void {
+    let sat = 0.12 + 0.88 * this.vitality; // never fully mono — a ghost of colour remains
+    let bright = 0.72 + 0.28 * this.vitality; // drained worlds go a touch colder
+    let blur = 0;
+    if (this.headless) {
+      sat *= 0.45; // colour drains out of a headless, half-conscious 迪迪
+      bright *= 0.55; // the world goes dim
+      blur = 3.5; // ...and out of focus — it can't really see
+    }
+    this.renderer.domElement.style.filter = `saturate(${sat.toFixed(3)}) brightness(${bright.toFixed(3)}) blur(${blur}px)`;
   }
 
   dispose(): void {

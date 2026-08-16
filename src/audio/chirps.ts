@@ -185,6 +185,7 @@ const PHRASES: Record<VoiceId, Record<EmoteKind, () => Syllable[]>> = {
 export class Chirps {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private muffle: BiquadFilterNode | null = null;
   private rollGain: GainNode | null = null;
   private rollFilter: BiquadFilterNode | null = null;
   private lastPlay = 0;
@@ -273,8 +274,22 @@ export class Chirps {
 
     this.master = this.ctx.createGain();
     this.master.gain.value = 1;
-    this.master.connect(compressor);
+    // A low-pass sits on the master, wide open until 迪迪 loses its head.
+    this.muffle = this.ctx.createBiquadFilter();
+    this.muffle.type = "lowpass";
+    this.muffle.frequency.value = 20000;
+    this.master.connect(this.muffle);
+    this.muffle.connect(compressor);
     return this.ctx;
+  }
+
+  /** 无头状态: cotton over the ears (on), or clear it (off). */
+  setMuffled(on: boolean): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.muffle) {
+      return;
+    }
+    this.muffle.frequency.setTargetAtTime(on ? 460 : 20000, ctx.currentTime, 0.12);
   }
 
   /** Renders one syllable, returns the start time for the next one. */

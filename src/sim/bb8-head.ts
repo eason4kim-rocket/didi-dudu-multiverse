@@ -1,3 +1,4 @@
+import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import type { ControlState, EmoteKind } from "../control/commands";
 import { COLORS, metal, plastic } from "../render/materials";
@@ -28,10 +29,62 @@ export class Bb8Head {
   private gestureDir = 1;
   private readonly gestureOut = { yaw: 0, pitch: 0, roll: 0, lift: 0 };
 
+  /** 无头状态: when the head is knocked off it becomes a physical object. */
+  detached = false;
+  private headBody: CANNON.Body | null = null;
+  private world: CANNON.World | null = null;
+
   constructor() {
     this.mesh = createHeadMesh();
     this.mesh.rotation.order = "YXZ";
     this.mesh.position.set(0, BODY_RADIUS - HEAD_SIT, 0);
+  }
+
+  /** Pop the head off: it falls, tumbles and rolls, carrying 迪迪's momentum. */
+  detach(world: CANNON.World, material: CANNON.Material, momentum: CANNON.Vec3): void {
+    if (this.detached) {
+      return;
+    }
+    const p = this.mesh.position;
+    const body = new CANNON.Body({
+      mass: 0.35,
+      material,
+      linearDamping: 0.28,
+      angularDamping: 0.3,
+      position: new CANNON.Vec3(p.x, p.y, p.z),
+      collisionFilterGroup: 1,
+      collisionFilterMask: 1,
+    });
+    body.addShape(new CANNON.Sphere(HEAD_RADIUS * 0.8));
+    body.velocity.set(momentum.x * 0.6, 3.2, momentum.z * 0.6); // pop up + forward
+    body.angularVelocity.set(
+      (Math.random() - 0.5) * 12,
+      (Math.random() - 0.5) * 12,
+      (Math.random() - 0.5) * 12,
+    );
+    world.addBody(body);
+    this.headBody = body;
+    this.world = world;
+    this.detached = true;
+    this.gesture = null;
+  }
+
+  /** 独独 (or 迪迪) got the head back: re-seat it on the ball. */
+  recover(): void {
+    if (this.headBody && this.world) {
+      this.world.removeBody(this.headBody);
+    }
+    this.headBody = null;
+    this.world = null;
+    this.detached = false;
+    this.mesh.rotation.set(0, 0, 0);
+  }
+
+  /** World position of the lost head — for pickup range and 独独's rescue. */
+  headPosition(out: THREE.Vector3): THREE.Vector3 {
+    return this.headBody
+      ? out.set(this.headBody.position.x, this.headBody.position.y, this.headBody.position.z)
+      : out.copy(this.mesh.position);
   }
 
   triggerEmote(kind: EmoteKind): void {
@@ -52,6 +105,17 @@ export class Bb8Head {
   }
 
   sync(body: Bb8Body, state: ControlState, dt: number): void {
+    // Knocked off: ride the physics body, tumbling on the ground, not the ball.
+    if (this.detached) {
+      if (this.headBody) {
+        const p = this.headBody.position;
+        const q = this.headBody.quaternion;
+        this.mesh.position.set(p.x, p.y - HEAD_RADIUS * 0.55, p.z);
+        this.mesh.quaternion.set(q.x, q.y, q.z, q.w);
+      }
+      return;
+    }
+
     this.updateGesture();
     const pos = body.physics.position;
     body.magnetDirection(this.magnet);
