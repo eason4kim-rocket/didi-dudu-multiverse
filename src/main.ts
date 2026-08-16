@@ -13,6 +13,8 @@ import { createPhysicsWorld } from "./sim/world";
 import { Race } from "./game/race";
 import { Portal } from "./game/portal";
 import { EchoResponder } from "./game/echo";
+import { WorldVitality } from "./game/vitality";
+import { Parts } from "./game/parts";
 import { UNIVERSES, runtimeGrip } from "./universes";
 import { getLang, onLangChange, t, toggleLang } from "./i18n";
 
@@ -59,6 +61,14 @@ let worldSwapTimer = 0;
 // 回声应答: 迪迪 calls, 独独 answers a beat later — the emotional spine.
 const echo = new EchoResponder(buddy, audio);
 
+// 世界生机 + 真身零件: take a part, the world dims; 独独 relights it behind you.
+const vitality = new WorldVitality();
+vitality.setUniverse(UNIVERSES[0].id);
+const parts = new Parts();
+parts.setUniverse(UNIVERSES[0].id);
+scene.add(parts.mesh);
+let vitalityApplied = 1;
+
 const statusEl = document.querySelector("#hw-status");
 const serialBtn = document.querySelector("#btn-serial");
 const bleBtn = document.querySelector("#btn-ble");
@@ -94,6 +104,11 @@ function setUniverse(index: number): void {
   runtimeGrip.scale = u.gripScale;
   // Each world keeps its own best lap: switching re-arms the run.
   race.setUniverse(u.id);
+  // Each world remembers its own vitality; parts respawn fresh per visit.
+  vitality.setUniverse(u.id);
+  parts.setUniverse(u.id);
+  vitalityApplied = vitality.value;
+  scene.setVitality(vitalityApplied);
   if (universeBtn instanceof HTMLButtonElement) {
     universeBtn.textContent = universeLabel();
   }
@@ -317,6 +332,21 @@ function frame(now: number): void {
     enterWorld(universeIndex + 1);
   }
 
+  // 真身零件 + 世界生机: taking a part dims this world; 独独 (following) relights it.
+  if (parts.update(body.physics.position, now) === "collected") {
+    vitality.drain(0.34);
+    audio.play("excited", 0.06);
+    body.react("excited");
+    head.triggerEmote("excited");
+  }
+  if (drivingBb8) {
+    vitality.restore(dt, 0.03); // 独独's silent repair, ~11s per notch
+  }
+  if (Math.abs(vitality.value - vitalityApplied) > 0.002) {
+    vitalityApplied = vitality.value;
+    scene.setVitality(vitalityApplied);
+  }
+
   scene.followBody(drivingBb8 ? body : buddy, dt);
   scene.render();
   requestAnimationFrame(frame);
@@ -334,6 +364,8 @@ Object.assign(window as unknown as Record<string, unknown>, {
     race,
     portal,
     echo,
+    vitality,
+    parts,
     getActiveBot: () => activeBot,
     setUniverse,
     enterWorld,

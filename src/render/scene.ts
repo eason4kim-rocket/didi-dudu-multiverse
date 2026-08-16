@@ -95,6 +95,17 @@ export class GameScene {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /**
+   * 世界生机: drain a world's colour as 迪迪 strips it for parts. A CSS filter
+   * on the canvas desaturates the whole frame uniformly (sky, ground, meshes)
+   * with zero cost and no render-path change. v: 0 (grey) .. 1 (full colour).
+   */
+  setVitality(v: number): void {
+    const sat = 0.12 + 0.88 * v; // never fully mono — a ghost of colour remains
+    const bright = 0.72 + 0.28 * v; // drained worlds also go a touch colder
+    this.renderer.domElement.style.filter = `saturate(${sat.toFixed(3)}) brightness(${bright.toFixed(3)})`;
+  }
+
   dispose(): void {
     window.removeEventListener("resize", this.resize);
     this.controls.dispose();
