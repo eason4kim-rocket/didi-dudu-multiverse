@@ -49,10 +49,10 @@ export function createPhysicsWorld(): {
     if (terrain) {
       world.removeBody(terrain);
     }
+    // Let cannon derive the collision AABB from the actual heights — hardcoding
+    // it risks the ball falling through if terrain is ever tuned past the bound.
     const shape = new CANNON.Heightfield(makeHeightfieldData(universeId), {
       elementSize: HF_ELEM,
-      minValue: -1,
-      maxValue: 1,
     });
     const body = new CANNON.Body({
       mass: 0,

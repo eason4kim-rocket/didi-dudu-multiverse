@@ -54,7 +54,14 @@ export class GameScene {
         if (child instanceof THREE.Mesh) {
           child.geometry.dispose();
           const mats = Array.isArray(child.material) ? child.material : [child.material];
-          for (const m of mats) m.dispose();
+          for (const m of mats) {
+            // Dispose the canvas textures too — disposing a material doesn't,
+            // so the per-world ground/sky maps would otherwise leak each switch.
+            const tex = m as unknown as { map?: THREE.Texture | null; bumpMap?: THREE.Texture | null };
+            tex.map?.dispose();
+            tex.bumpMap?.dispose();
+            m.dispose();
+          }
         }
       });
     }
