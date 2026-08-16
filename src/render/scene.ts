@@ -125,6 +125,8 @@ export class GameScene {
     let canvas: HTMLCanvasElement;
     if (u.sky === "galaxy") {
       canvas = makeGalaxySky();
+    } else if (u.sky === "moon") {
+      canvas = makeMoonSky();
     } else {
       canvas = document.createElement("canvas");
       canvas.width = 16;
@@ -195,10 +197,14 @@ export class GameScene {
   }
 
   private addGround(u: Universe): void {
+    // A bump map gives the ground real relief under the light — the single
+    // biggest jump from "flat decal" to "surface you could stub a toe on".
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(48, 96),
       new THREE.MeshStandardMaterial({
         map: makeSandTexture(u.sandBase, u.sandFleck),
+        bumpMap: makeGroundBump(u.cratered),
+        bumpScale: u.bumpScale,
         roughness: 0.97,
         metalness: 0.02,
         color: u.groundTint,
@@ -275,6 +281,142 @@ function makeSandTexture(base: string, fleck: string): THREE.CanvasTexture {
   texture.repeat.set(12, 12);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+/**
+ * Grayscale relief for the ground's bump map (bright = high). Deserts and ice
+ * get wind-blown grain + soft lumps; the Moon adds real impact craters
+ * (dark floor, bright raised rim) so raking sunlight carves them out.
+ */
+function makeGroundBump(cratered: boolean): THREE.CanvasTexture {
+  const S = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = S;
+  canvas.height = S;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return new THREE.CanvasTexture(canvas);
+  }
+  ctx.fillStyle = "#808080"; // mid grey = flat
+  ctx.fillRect(0, 0, S, S);
+
+  // Fine grain: micro-relief speckle.
+  for (let i = 0; i < 9000; i += 1) {
+    const g = Math.round(128 + (Math.random() * 2 - 1) * 66);
+    ctx.fillStyle = `rgb(${g},${g},${g})`;
+    ctx.fillRect(Math.random() * S, Math.random() * S, 1, 1);
+  }
+  // Soft lumps: gentle rolling bumps and dips.
+  for (let i = 0; i < 44; i += 1) {
+    const x = Math.random() * S;
+    const y = Math.random() * S;
+    const r = 8 + Math.random() * 42;
+    const up = Math.random() < 0.5;
+    const blob = ctx.createRadialGradient(x, y, 0, x, y, r);
+    blob.addColorStop(0, up ? "rgba(205,205,205,0.5)" : "rgba(58,58,58,0.5)");
+    blob.addColorStop(1, "rgba(128,128,128,0)");
+    ctx.fillStyle = blob;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  if (cratered) {
+    for (let i = 0; i < 26; i += 1) {
+      const x = Math.random() * S;
+      const y = Math.random() * S;
+      const r = 6 + Math.random() * 46;
+      const crater = ctx.createRadialGradient(x, y, 0, x, y, r);
+      crater.addColorStop(0, "rgba(68,68,68,0.85)"); // sunken floor
+      crater.addColorStop(0.72, "rgba(96,96,96,0.5)");
+      crater.addColorStop(0.86, "rgba(216,216,216,0.85)"); // raised rim
+      crater.addColorStop(1, "rgba(128,128,128,0)");
+      ctx.fillStyle = crater;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  const rep = cratered ? 6 : 12;
+  texture.repeat.set(rep, rep);
+  return texture;
+}
+
+/** Airless lunar sky: pure black, crisp dense stars, Earth hanging in it. */
+function makeMoonSky(): HTMLCanvasElement {
+  const W = 2048;
+  const H = 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return canvas;
+  }
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "#01010a");
+  grad.addColorStop(1, "#050608");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // No atmosphere → stars are sharp and everywhere, right down to the horizon.
+  for (let i = 0; i < 4200; i += 1) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.98;
+    const b = 0.35 + Math.random() * 0.65;
+    ctx.fillStyle = `rgba(255,255,255,${b.toFixed(2)})`;
+    ctx.fillRect(x, y, Math.random() < 0.88 ? 1 : 2, 1);
+  }
+  for (let i = 0; i < 40; i += 1) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.7;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 6);
+    glow.addColorStop(0, "rgba(255,255,255,0.95)");
+    glow.addColorStop(1, "rgba(205,222,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - 6, y - 6, 12, 12);
+  }
+
+  // Earth, half-lit, hanging in the black — the iconic view from the surface.
+  const ex = W * 0.2;
+  const ey = H * 0.27;
+  const er = 66;
+  const halo = ctx.createRadialGradient(ex, ey, er * 0.6, ex, ey, er * 2.3);
+  halo.addColorStop(0, "rgba(120,170,255,0.32)");
+  halo.addColorStop(1, "rgba(120,170,255,0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(ex - er * 2.3, ey - er * 2.3, er * 4.6, er * 4.6);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(ex, ey, er, 0, Math.PI * 2);
+  ctx.clip();
+  const disc = ctx.createLinearGradient(ex - er, ey - er, ex + er, ey + er);
+  disc.addColorStop(0, "#2f63b4");
+  disc.addColorStop(1, "#12347a");
+  ctx.fillStyle = disc;
+  ctx.fillRect(ex - er, ey - er, er * 2, er * 2);
+  for (let i = 0; i < 12; i += 1) {
+    const a = Math.random() * Math.PI * 2;
+    const rr = Math.random() * er * 0.92;
+    const x = ex + Math.cos(a) * rr;
+    const y = ey + Math.sin(a) * rr;
+    const r = 6 + Math.random() * 16;
+    ctx.fillStyle = Math.random() < 0.5 ? "rgba(74,124,74,0.7)" : "rgba(240,245,255,0.6)";
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Terminator: the far limb falls into night.
+  const shade = ctx.createLinearGradient(ex - er, ey, ex + er, ey);
+  shade.addColorStop(0, "rgba(0,0,12,0)");
+  shade.addColorStop(0.62, "rgba(0,0,12,0.12)");
+  shade.addColorStop(1, "rgba(0,0,12,0.86)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(ex - er, ey - er, er * 2, er * 2);
+  ctx.restore();
+
+  return canvas;
 }
 
 /** Martian night: near-black space, a crisp galaxy arc, dusty horizon. */
