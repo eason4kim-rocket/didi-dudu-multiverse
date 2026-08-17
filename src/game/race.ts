@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { t } from "../i18n";
+import { heightAtWorld } from "../sim/heightfield";
 
 /**
  * Multiverse time-trial. One fixed course of glowing gates loops around the
@@ -36,6 +37,7 @@ const COL_PASSED = 0x35d17e; // done: green
 
 interface Gate {
   readonly center: THREE.Vector3;
+  readonly group: THREE.Group;
   readonly ring: THREE.Mesh;
   readonly pad: THREE.Mesh;
 }
@@ -105,7 +107,7 @@ export class Race {
       group.add(pad);
 
       this.mesh.add(group);
-      this.gates.push({ center: new THREE.Vector3(x, 0, z), ring, pad });
+      this.gates.push({ center: new THREE.Vector3(x, 0, z), group, ring, pad });
     }
 
     // A light pillar parked over the active gate so you can find it from afar.
@@ -132,6 +134,10 @@ export class Race {
   setUniverse(id: string): void {
     this.universeId = id;
     this.best = loadBest(id);
+    // Sit each gate on this world's terrain instead of the old flat y=0.
+    for (const gate of this.gates) {
+      gate.group.position.y = heightAtWorld(gate.center.x, gate.center.z, id);
+    }
     this.reset();
   }
 
@@ -197,7 +203,7 @@ export class Race {
       const mat = active.ring.material as THREE.MeshStandardMaterial;
       mat.emissiveIntensity = 0.9 + 0.5 * Math.sin(nowMs / 240);
       this.beam.visible = true;
-      this.beam.position.set(active.center.x, 4, active.center.z);
+      this.beam.position.set(active.center.x, 4 + active.group.position.y, active.center.z);
     } else {
       this.beam.visible = false;
     }
