@@ -181,6 +181,40 @@ canvas {
   letter-spacing: 0.14em;
 }
 
+/* 剧情导演: one quiet line of guidance per beat, low-center, fades in and out. */
+#story {
+  position: fixed;
+  left: 50%;
+  bottom: 120px;
+  transform: translate(-50%, 10px);
+  z-index: 4;
+  max-width: min(680px, 86vw);
+  pointer-events: none;
+  text-align: center;
+  color: #f4efe6;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transition:
+    opacity 600ms ease,
+    transform 600ms ease;
+}
+
+#story.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#story-line {
+  display: inline-block;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(16, 12, 8, 0.5);
+  border: 1px solid rgba(159, 233, 255, 0.28);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+
 kbd {
   display: inline-block;
   min-width: 1.4em;

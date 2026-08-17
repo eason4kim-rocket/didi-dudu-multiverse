@@ -17,6 +17,7 @@ import { Beacon } from "./game/beacon";
 import { EchoResponder } from "./game/echo";
 import { WorldVitality } from "./game/vitality";
 import { Parts } from "./game/parts";
+import { Director } from "./game/director";
 import { heightAtWorld } from "./sim/heightfield";
 import { UNIVERSES, runtimeGrip } from "./universes";
 import { getLang, onLangChange, t, toggleLang } from "./i18n";
@@ -71,6 +72,30 @@ let worldSwapTimer = 0;
 // 回声应答: 迪迪 calls, 独独 answers a beat later — the emotional spine.
 const echo = new EchoResponder(buddy, audio);
 
+// 剧情导演: sequences the beats into a walk-through, one guiding line each.
+const director = new Director();
+const storyEl = document.querySelector<HTMLElement>("#story");
+const storyLineEl = document.querySelector<HTMLElement>("#story-line");
+let storyKey = "";
+let storyHideTimer = 0;
+let everLeftDusk = false;
+let headRecoveries = 0;
+
+function showStory(key: string): void {
+  storyKey = key;
+  if (storyLineEl) {
+    storyLineEl.textContent = t(key);
+  }
+  if (storyEl) {
+    storyEl.classList.add("show");
+    window.clearTimeout(storyHideTimer);
+    // The finale line lingers; earlier beats fade after a read.
+    if (!director.atFinale) {
+      storyHideTimer = window.setTimeout(() => storyEl.classList.remove("show"), 6500);
+    }
+  }
+}
+
 // 世界生机 + 真身零件: take a part, the world dims; 独独 relights it behind you.
 const vitality = new WorldVitality();
 vitality.setUniverse(UNIVERSES[0].id);
@@ -105,6 +130,7 @@ function recoverHead(): void {
     return;
   }
   head.recover();
+  headRecoveries += 1;
   scene.setHeadless(false);
   audio.setMuffled(false);
   buddy.setRescueTarget(null);
@@ -176,6 +202,9 @@ function setUniverse(index: number): void {
   vitality.setUniverse(u.id);
   parts.setUniverse(u.id);
   beacon.setUniverse(u.id); // the shard only lives in the opening world
+  if (u.id !== "dusk") {
+    everLeftDusk = true; // crossed a portal out of the opening world
+  }
   vitalityApplied = vitality.value;
   scene.setVitality(vitalityApplied);
   if (universeBtn instanceof HTMLButtonElement) {
@@ -301,6 +330,9 @@ function applyLang(): void {
   }
   if (langBtn instanceof HTMLButtonElement) {
     langBtn.textContent = getLang() === "zh" ? "EN" : "中文";
+  }
+  if (storyLineEl && storyKey) {
+    storyLineEl.textContent = t(storyKey); // keep the visible beat line in sync
   }
 }
 
@@ -450,6 +482,22 @@ function frame(now: number): void {
     scene.setVitality(vitalityApplied);
   }
 
+  // 剧情导演: advance the story when this beat's goal is met, surface the next line.
+  const beatChange = director.update({
+    nearBeacon:
+      UNIVERSES[universeIndex].id === "dusk" &&
+      Math.hypot(
+        body.physics.position.x - beacon.center.x,
+        body.physics.position.z - beacon.center.z,
+      ) < 4.5,
+    everLeftDusk,
+    totalTaken: parts.totalTaken,
+    headRecoveries,
+  });
+  if (beatChange) {
+    showStory(beatChange);
+  }
+
   scene.followBody(drivingBb8 ? body : buddy, dt);
   scene.render();
   requestAnimationFrame(frame);
@@ -471,6 +519,7 @@ Object.assign(window as unknown as Record<string, unknown>, {
     vitality,
     parts,
     head,
+    director,
     getActiveBot: () => activeBot,
     heightAt: (x: number, z: number) => heightAtWorld(x, z, UNIVERSES[universeIndex].id),
     loseHead,

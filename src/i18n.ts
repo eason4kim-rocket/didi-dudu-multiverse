@@ -45,6 +45,12 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     "race.finish": "完成！{t} — 按 R 再来",
     "race.best": "最佳 {t}",
     "race.bestNone": "最佳 —",
+    "story.b0": "有什么在叫……循着那点光去看看",
+    "story.b1": "声音是从门里来的——驶进传送门",
+    "story.b2": "这些是让你「变成真的」的零件——取一个",
+    "story.b3": "变真＝变重＝会碎……但独独一直在",
+    "story.b4": "越来越真，也越来越重了",
+    "story.b5": "门开了一条缝，门外的回声——还缺着几个音",
   },
   en: {
     "app.title": "Didi & DuDu's Multiverse",
@@ -85,6 +91,12 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     "race.finish": "Finish! {t} — press R to retry",
     "race.best": "Best {t}",
     "race.bestNone": "Best —",
+    "story.b0": "Something is calling… follow that faint light",
+    "story.b1": "The sound is beyond the gate — roll through the portal",
+    "story.b2": "These are the pieces to become real — take one",
+    "story.b3": "Real means heavy, means breakable — but DuDu's always there",
+    "story.b4": "More real now, and heavier for it",
+    "story.b5": "The gate opens a crack; the echo beyond — still missing a few notes",
   },
 };
 
